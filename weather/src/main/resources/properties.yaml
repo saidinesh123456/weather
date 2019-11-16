@@ -1,0 +1,7 @@
+http:
+ port: "8081"
+ path: "/WeatherReport"
+ 
+Request:
+ host: "api.meteostat.net"
+ path: "/v1/history/daily"

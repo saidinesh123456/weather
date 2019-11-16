@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	
+	<flow name="weatherFlow" doc:id="9fa484b5-9eb3-429b-8701-0996d6378e43" >
+		<http:listener doc:name="Listener" doc:id="2a22aa90-16bd-4993-8199-f70733543479" config-ref="HTTP_Listener_config" path="${http.path}"/>
+		<logger level="INFO" doc:name="LOG INFO start process" doc:id="4ce2820a-8884-4dba-b904-e4335de2b14b" message="Starting  the API #[correlationId]" />
+		<http:request method="GET" doc:name="Request To Weather Api" doc:id="85683f5c-d1e1-43f2-8b90-30fc037eee40" config-ref="HTTP_Request_configuration" path="${Request.path}">
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"start" : attributes.queryParams.start,
+	"key" : attributes.queryParams.key,
+	"end" : attributes.queryParams.end,
+	"station" : attributes.queryParams.station
+}]]]></http:query-params>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="4b820d37-1f36-4aa0-8799-69de417b3fbd">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+var month = "12"
+fun Month(temp) = (temp splitBy "-")[1]
+fun maxtemperature(temp) = max(temp)
+---
+{
+  "max_temperatue_month": maxtemperature(payload.data[?(Month($.date) == month)] map  $.temperature_max),
+  "avg_precipitation_month": sort(payload.data groupBy ((item, index) -> Month(item.date))) mapObject  ({
+  '$$': avg($[?($.precipitation != null)] map $.precipitation)
+}),
+"lowest temperature on 1st week": min(((payload.data)[0 to 6] map $.temperature_min) filter $!=null) ,
+"lowest temperature on 2nd week": min(((payload.data)[7 to 14] map $.temperature_min) filter $!=null),
+"lowest temperature on 3th week": min(((payload.data)[7 to ((max((payload.data) map $.date) splitBy "-")[2] as Number) - 1] map $.temperature_min) filter $!=null)
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="LOG INFO end process" doc:id="4f181c8a-28fa-48d4-b857-951dc9945ee6" message="Ending  the API #[correlationId]"/>
+	</flow>
+</mule>
